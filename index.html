@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pong 2.0</title>
+    
+    <!-- Favicon Link (Local Image) -->
+    <link rel="icon" href="pong.png" type="image/png">
+    
+    <style>
+        /* Reset default browser styles */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #000;
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Modal Styles */
+        .modal {
+            position: absolute;
+            background-color: rgba(0, 0, 0, 0.85);
+            border: 4px solid #fff;
+            padding: 30px;
+            text-align: center;
+            z-index: 10;
+            width: 80%;
+            max-width: 400px;
+            border-radius: 10px;
+        }
+
+        .modal h2, .modal h3 {
+            margin-bottom: 20px;
+            font-size: 2em;
+        }
+
+        .modal p {
+            margin-bottom: 30px;
+            font-size: 1.2em;
+        }
+
+        .modal button {
+            padding: 10px 20px;
+            margin: 10px;
+            font-size: 1em;
+            background-color: #fff;
+            color: #000;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            border-radius: 5px;
+        }
+
+        .modal button:hover {
+            background-color: #ddd;
+        }
+
+        /* Game Area Styles */
+        #gameArea {
+            display: none;
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        canvas {
+            background-color: #000;
+            display: block;
+            margin: 0 auto;
+            border: 2px solid #fff;
+        }
+
+        /* Score Counter Styles */
+        #scoreBoard {
+            position: absolute;
+            top: 20px;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            font-size: 1.5em;
+            padding: 0 50px;
+            pointer-events: none; /* Allows clicks to pass through */
+            z-index: 5;
+        }
+
+        /* Responsive Canvas */
+        @media (max-width: 850px) {
+            #scoreBoard {
+                padding: 0 20px;
+                font-size: 1.2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Initial Modal -->
+    <div id="introModal" class="modal active">
+        <h2>Pong 2.0</h2>
+        <p>Developed By UnknownBlackHat</p>
+        <button onclick="showDifficultyModal()">Enter</button>
+    </div>
+
+    <!-- Difficulty Selection Modal -->
+    <div id="difficultyModal" class="modal" style="display: none;">
+        <h3>Select Difficulty</h3>
+        <button onclick="startGame('easy')">Easy</button>
+        <button onclick="startGame('medium')">Medium</button>
+        <button onclick="startGame('hard')">Hard</button>
+        <button onclick="promptAdminPassword()">ADMIN MENU</button>
+    </div>
+
+    <!-- Cheat Menu Modal -->
+    <div id="cheatModal" class="modal" style="display: none;">
+        <h3>Cheat Menu</h3>
+        <button onclick="toggleRainbowMode()">Rainbow Mode</button>
+        <button onclick="promptPlayerName()">Name</button>
+        <button onclick="addFiveScore()">Add 5 Score</button>
+        <button onclick="closeCheatMenu()">Close</button>
+    </div>
+
+    <!-- Game Area -->
+    <div id="gameArea">
+        <!-- Score Board -->
+        <div id="scoreBoard">
+            <div id="playerScore">Player: 0</div>
+            <div id="aiScore">AI: 0</div>
+        </div>
+        <!-- Canvas for Pong Game -->
+        <canvas id="pongCanvas"></canvas>
+    </div>
+
+    <script>
+        // DOM Elements
+        const introModal = document.getElementById('introModal');
+        const difficultyModal = document.getElementById('difficultyModal');
+        const cheatModal = document.getElementById('cheatModal');
+        const gameArea = document.getElementById('gameArea');
+        const canvas = document.getElementById('pongCanvas');
+        const ctx = canvas.getContext('2d');
+        const playerScoreDisplay = document.getElementById('playerScore');
+        const aiScoreDisplay = document.getElementById('aiScore');
+
+        // Game Variables
+        let paddleWidth = 10;
+        let paddleHeight = 100;
+        let ballRadius = 10;
+
+        let playerPaddleY = 0;
+        let aiPaddleY = 0;
+        let ballX = 0;
+        let ballY = 0;
+        let ballDX = 0;
+        let ballDY = 0;
+        let aiSpeed = 0;
+        let gameRunning = false;
+
+        // Score Variables
+        let playerScore = 0;
+        let aiScore = 0;
+
+        // Control Variables
+        let upPressed = false;
+        let downPressed = false;
+
+        // Admin Variables
+        let isRainbowMode = false;
+        let rainbowHue = 0;
+        let playerName = "Player";
+
+        // Adjust Canvas Size Based on Window Size
+        function adjustCanvasSize() {
+            const maxWidth = window.innerWidth * 0.9;
+            const maxHeight = window.innerHeight * 0.9;
+
+            // Maintain aspect ratio (e.g., 2:1)
+            let width = maxWidth;
+            let height = maxWidth / 2;
+
+            if (height > maxHeight) {
+                height = maxHeight;
+                width = maxHeight * 2;
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+
+            // Update Paddle and Ball Sizes Proportionally
+            paddleWidth = canvas.width * 0.01;
+            paddleHeight = canvas.height * 0.3;
+            ballRadius = canvas.width * 0.01;
+
+            // Reset Paddle Positions
+            playerPaddleY = (canvas.height - paddleHeight) / 2;
+            aiPaddleY = (canvas.height - paddleHeight) / 2;
+
+            // Reset Ball Position
+            ballX = canvas.width / 2;
+            ballY = canvas.height / 2;
+        }
+
+        // Initialize Canvas Size on Load and Resize
+        window.addEventListener('load', adjustCanvasSize);
+        window.addEventListener('resize', () => {
+            if (!gameRunning) {
+                adjustCanvasSize();
+            }
+        });
+
+        // Show Difficulty Modal
+        function showDifficultyModal() {
+            introModal.style.display = 'none';
+            difficultyModal.style.display = 'block';
+        }
+
+        // Start Game
+        function startGame(difficulty) {
+            // Reset scores
+            playerScore = 0;
+            aiScore = 0;
+            updateScore();
+
+            // Adjust Canvas Size
+            adjustCanvasSize();
+
+            // Set AI Speed and Ball Direction based on Difficulty
+            switch(difficulty) {
+                case 'easy':
+                    aiSpeed = canvas.height * 0.005;
+                    ballDX = canvas.width * 0.005;
+                    ballDY = canvas.width * 0.005;
+                    break;
+                case 'medium':
+                    aiSpeed = canvas.height * 0.007;
+                    ballDX = canvas.width * 0.007;
+                    ballDY = canvas.width * 0.007;
+                    break;
+                case 'hard':
+                    aiSpeed = canvas.height * 0.01;
+                    ballDX = canvas.width * 0.01;
+                    ballDY = canvas.width * 0.01;
+                    break;
+                default:
+                    aiSpeed = canvas.height * 0.007;
+                    ballDX = canvas.width * 0.007;
+                    ballDY = canvas.width * 0.007;
+            }
+
+            // Initialize Ball Direction Randomly Left or Right
+            ballDX = Math.random() > 0.5 ? Math.abs(ballDX) : -Math.abs(ballDX);
+            ballDY = Math.random() > 0.5 ? Math.abs(ballDY) : -Math.abs(ballDY);
+
+            // Reset Paddle Positions
+            playerPaddleY = (canvas.height - paddleHeight) / 2;
+            aiPaddleY = (canvas.height - paddleHeight) / 2;
+
+            // Hide Modal and Show Game Area
+            difficultyModal.style.display = 'none';
+            gameArea.style.display = 'block';
+
+            // Start the Game Loop
+            gameRunning = true;
+            requestAnimationFrame(draw);
+        }
+
+        // Update Score Display
+        function updateScore() {
+            playerScoreDisplay.textContent = `${playerName}: ${playerScore}`;
+            aiScoreDisplay.textContent = `AI: ${aiScore}`;
+        }
+
+        // Reset Ball to Center
+        function resetBall() {
+            ballX = canvas.width / 2;
+            ballY = canvas.height / 2;
+            // Randomize direction
+            ballDX = Math.random() > 0.5 ? Math.abs(ballDX) : -Math.abs(ballDX);
+            ballDY = Math.random() > 0.5 ? Math.abs(ballDY) : -Math.abs(ballDY);
+        }
+
+        // Handle Keyboard Input
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowUp' || e.key === 'Up') {
+                upPressed = true;
+            } else if (e.key === 'ArrowDown' || e.key === 'Down') {
+                downPressed = true;
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowUp' || e.key === 'Up') {
+                upPressed = false;
+            } else if (e.key === 'ArrowDown' || e.key === 'Down') {
+                downPressed = false;
+            }
+        });
+
+        // Handle Mouse Movement for Player Paddle
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseY = e.clientY - rect.top;
+            playerPaddleY = mouseY - paddleHeight / 2;
+
+            // Prevent Paddle from Going Out of Bounds
+            if (playerPaddleY < 0) playerPaddleY = 0;
+            if (playerPaddleY + paddleHeight > canvas.height) playerPaddleY = canvas.height - paddleHeight;
+        });
+
+        // Handle Touch Movement for Mobile
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const touchY = e.touches[0].clientY - rect.top;
+            playerPaddleY = touchY - paddleHeight / 2;
+
+            // Prevent Paddle from Going Out of Bounds
+            if (playerPaddleY < 0) playerPaddleY = 0;
+            if (playerPaddleY + paddleHeight > canvas.height) playerPaddleY = canvas.height - paddleHeight;
+        }, { passive: false });
+
+        // Prompt for Admin Password
+        function promptAdminPassword() {
+            const password = prompt("Enter Admin Password:");
+            if (password === "admin!") {
+                cheatModal.style.display = 'block';
+            } else {
+                alert("Incorrect Password!");
+            }
+        }
+
+        // Close Cheat Menu
+        function closeCheatMenu() {
+            cheatModal.style.display = 'none';
+        }
+
+        // Toggle Rainbow Mode
+        function toggleRainbowMode() {
+            isRainbowMode = !isRainbowMode;
+            if (!isRainbowMode) {
+                // Reset colors to default
+                rainbowHue = 0;
+            }
+        }
+
+        // Prompt for Player Name
+        function promptPlayerName() {
+            const name = prompt("Enter your name:");
+            if (name && name.trim() !== "") {
+                playerName = name.trim();
+                updateScore();
+            }
+        }
+
+        // Add 5 to Player's Score
+        function addFiveScore() {
+            playerScore += 5;
+            updateScore();
+        }
+
+        // Draw Middle Line
+        function drawMiddleLine() {
+            ctx.beginPath();
+            ctx.setLineDash([10, 15]);
+            ctx.moveTo(canvas.width / 2, 0);
+            ctx.lineTo(canvas.width / 2, canvas.height);
+            ctx.strokeStyle = isRainbowMode ? `hsl(${rainbowHue}, 100%, 50%)` : '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.closePath();
+        }
+
+        // Draw Paddles and Ball
+        function draw() {
+            if (!gameRunning) return;
+
+            // Clear Canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Middle Line
+            drawMiddleLine();
+
+            // Draw Player Paddle
+            ctx.fillStyle = isRainbowMode ? `hsl(${rainbowHue}, 100%, 50%)` : '#0000FF'; // Blue or Rainbow
+            ctx.fillRect(10, playerPaddleY, paddleWidth, paddleHeight);
+
+            // Draw AI Paddle
+            ctx.fillStyle = isRainbowMode ? `hsl(${(rainbowHue + 120) % 360}, 100%, 50%)` : '#FF0000'; // Red or Rainbow
+            ctx.fillRect(canvas.width - paddleWidth - 10, aiPaddleY, paddleWidth, paddleHeight);
+
+            // Draw Ball
+            ctx.beginPath();
+            ctx.arc(ballX, ballY, ballRadius, 0, Math.PI * 2);
+            ctx.fillStyle = isRainbowMode ? `hsl(${rainbowHue}, 100%, 50%)` : '#FFFFFF'; // White or Rainbow
+            ctx.fill();
+            ctx.closePath();
+
+            // Draw Score with Rainbow
+            if (isRainbowMode) {
+                ctx.fillStyle = `hsl(${rainbowHue}, 100%, 50%)`;
+            } else {
+                ctx.fillStyle = '#FFFFFF';
+            }
+
+            ctx.font = `${canvas.height * 0.05}px Courier New`;
+            ctx.textAlign = 'left';
+            ctx.fillText(`${playerName}: ${playerScore}`, 20, 50);
+            ctx.textAlign = 'right';
+            ctx.fillText(`AI: ${aiScore}`, canvas.width - 20, 50);
+
+            // Move Player Paddle Based on Keyboard Input
+            if (upPressed) {
+                playerPaddleY -= canvas.height * 0.02; // Movement speed proportional to canvas size
+                if (playerPaddleY < 0) playerPaddleY = 0;
+            }
+            if (downPressed) {
+                playerPaddleY += canvas.height * 0.02;
+                if (playerPaddleY + paddleHeight > canvas.height) playerPaddleY = canvas.height - paddleHeight;
+            }
+
+            // Move AI Paddle
+            // Simple AI: Move towards the ball with a certain speed
+            if (aiPaddleY + paddleHeight / 2 < ballY) {
+                aiPaddleY += aiSpeed;
+            } else {
+                aiPaddleY -= aiSpeed;
+            }
+
+            // Prevent AI Paddle from Going Out of Bounds
+            if (aiPaddleY < 0) aiPaddleY = 0;
+            if (aiPaddleY + paddleHeight > canvas.height) aiPaddleY = canvas.height - paddleHeight;
+
+            // Move Ball
+            ballX += ballDX;
+            ballY += ballDY;
+
+            // Ball Collision with Top and Bottom Walls
+            if (ballY + ballDY > canvas.height - ballRadius || ballY + ballDY < ballRadius) {
+                ballDY = -ballDY;
+            }
+
+            // Ball Collision with Player Paddle
+            if (ballX - ballRadius < 10 + paddleWidth) {
+                if (ballY > playerPaddleY && ballY < playerPaddleY + paddleHeight) {
+                    ballDX = Math.abs(ballDX); // Ensure ballDX is positive
+                    // Adjust ballDY based on where it hits the paddle
+                    let deltaY = ballY - (playerPaddleY + paddleHeight / 2);
+                    ballDY = deltaY * 0.05; // Adjust sensitivity as needed
+                } else {
+                    // AI Scores
+                    aiScore++;
+                    updateScore();
+                    resetBall();
+                }
+            }
+
+            // Ball Collision with AI Paddle
+            if (ballX + ballRadius > canvas.width - paddleWidth - 10) {
+                if (ballY > aiPaddleY && ballY < aiPaddleY + paddleHeight) {
+                    ballDX = -Math.abs(ballDX); // Ensure ballDX is negative
+                    // Adjust ballDY based on where it hits the paddle
+                    let deltaY = ballY - (aiPaddleY + paddleHeight / 2);
+                    ballDY = deltaY * 0.05; // Adjust sensitivity as needed
+                } else {
+                    // Player Scores
+                    playerScore++;
+                    updateScore();
+                    resetBall();
+                }
+            }
+
+            // Handle Rainbow Mode Color Cycling
+            if (isRainbowMode) {
+                rainbowHue = (rainbowHue + 1) % 360; // Increment hue for color cycling
+            }
+
+            // Continue the Game Loop
+            requestAnimationFrame(draw);
+        }
+    </script>
+</body>
+</html>
