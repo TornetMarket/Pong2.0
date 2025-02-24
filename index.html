@@ -102,6 +102,10 @@
                 padding: 0 20px;
                 font-size: 1.2em;
             }
+
+            .modal {
+                max-width: 90%;
+            }
         }
     </style>
 </head>
@@ -200,7 +204,7 @@
             // Update Paddle and Ball Sizes Proportionally
             paddleWidth = canvas.width * 0.01;
             paddleHeight = canvas.height * 0.3;
-            ballRadius = canvas.width * 0.01;
+            ballRadius = canvas.width * 0.012; // Slightly larger for visibility
 
             // Reset Paddle Positions
             playerPaddleY = (canvas.height - paddleHeight) / 2;
@@ -239,23 +243,23 @@
             switch(difficulty) {
                 case 'easy':
                     aiSpeed = canvas.height * 0.005;
-                    ballDX = canvas.width * 0.005;
-                    ballDY = canvas.width * 0.005;
+                    ballDX = canvas.width * 0.003; // Slower ball
+                    ballDY = canvas.width * 0.003;
                     break;
                 case 'medium':
                     aiSpeed = canvas.height * 0.007;
-                    ballDX = canvas.width * 0.007;
-                    ballDY = canvas.width * 0.007;
+                    ballDX = canvas.width * 0.005; // Moderate speed
+                    ballDY = canvas.width * 0.005;
                     break;
                 case 'hard':
-                    aiSpeed = canvas.height * 0.01;
-                    ballDX = canvas.width * 0.01;
-                    ballDY = canvas.width * 0.01;
+                    aiSpeed = canvas.height * 0.010;
+                    ballDX = canvas.width * 0.008; // Faster ball
+                    ballDY = canvas.width * 0.008;
                     break;
                 default:
                     aiSpeed = canvas.height * 0.007;
-                    ballDX = canvas.width * 0.007;
-                    ballDY = canvas.width * 0.007;
+                    ballDX = canvas.width * 0.005;
+                    ballDY = canvas.width * 0.005;
             }
 
             // Initialize Ball Direction Randomly Left or Right
@@ -407,18 +411,8 @@
             ctx.fill();
             ctx.closePath();
 
-            // Draw Score with Rainbow
-            if (isRainbowMode) {
-                ctx.fillStyle = `hsl(${rainbowHue}, 100%, 50%)`;
-            } else {
-                ctx.fillStyle = '#FFFFFF';
-            }
-
-            ctx.font = `${canvas.height * 0.05}px Courier New`;
-            ctx.textAlign = 'left';
-            ctx.fillText(`${playerName}: ${playerScore}`, 20, 50);
-            ctx.textAlign = 'right';
-            ctx.fillText(`AI: ${aiScore}`, canvas.width - 20, 50);
+            // Draw Score with Rainbow (Removed to avoid duplication)
+            // Removed the canvas-based score display to rely solely on the scoreboard div
 
             // Move Player Paddle Based on Keyboard Input
             if (upPressed) {
